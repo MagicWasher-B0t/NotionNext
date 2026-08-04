@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  NOTION_PAGE_ID = "6352aeb0792d83cbb0e6012b534bd1d7"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
