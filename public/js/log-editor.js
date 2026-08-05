@@ -1,27 +1,34 @@
-// 改进日志内联编辑（独立脚本，不走 webpack chunk，文章页直接加载）
+// 改进日志内联编辑（独立脚本，_document 全局加载，自动初始化）
 // 点开 📝 改进日志后可打字，保存后通过 API 写回 Notion
 (function () {
-  const API_URL = 'https://recipe-search-2iw.pages.dev/api/update-log'
-  const PWD_KEY = 'recipe_log_pwd'
+  var API_URL = 'https://recipe-search-2iw.pages.dev/api/update-log'
+  var PWD_KEY = 'recipe_log_pwd'
   // 模板提示行（不是用户记录，不预填进编辑框）
-  const TEMPLATE_PREFIXES = ['（待填写', '(待填写', '格式示例', '待填写', '（示例', '(示例']
+  var TEMPLATE_PREFIXES = ['（待填写', '(待填写', '格式示例', '待填写', '（示例', '(示例']
 
   function getToggleId(el) {
-    const m = (el.className || '').match(/notion-block-([0-9a-f-]{36})/)
+    var m = (el.className || '').match(/notion-block-([0-9a-f-]{36})/)
     return m ? m[1] : null
   }
 
-  // 提取 toggle 现有的用户记录（过滤模板提示）
   function extractLogText(contentDiv) {
-    const texts = []
-    contentDiv.querySelectorAll('div, p, li, span').forEach(function (n) {
+    var texts = []
+    var nodes = contentDiv.querySelectorAll('div, p, li, span')
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i]
       if (n.children.length === 0 && n.textContent && n.textContent.trim()) {
         texts.push(n.textContent.trim())
       }
-    })
-    return texts
-      .filter(function (t) { return !TEMPLATE_PREFIXES.some(function (p) { return t.indexOf(p) === 0 }) })
-      .join('\n')
+    }
+    var filtered = []
+    for (var j = 0; j < texts.length; j++) {
+      var skip = false
+      for (var k = 0; k < TEMPLATE_PREFIXES.length; k++) {
+        if (texts[j].indexOf(TEMPLATE_PREFIXES[k]) === 0) { skip = true; break }
+      }
+      if (!skip) filtered.push(texts[j])
+    }
+    return filtered.join('\n')
   }
 
   function buildEditor(contentDiv, toggleId) {
@@ -69,7 +76,7 @@
           }
         })
         .catch(function () { btn.textContent = '✗ 网络错误'; btn.style.background = '#d9534f' })
-        .finally(function () {
+        .then(function () {
           setTimeout(function () {
             btn.textContent = '保存'
             btn.style.background = '#e8634a'
@@ -111,9 +118,24 @@
     }
   }
 
-  window.initLogEditors = function (root) {
-    var container = root && root.querySelector ? root : document
-    var toggles = container.querySelectorAll('.notion-toggle')
+  function tryInit() {
+    var root = document.getElementById('notion-article') || document.body
+    var toggles = root.querySelectorAll('.notion-toggle')
     for (var i = 0; i < toggles.length; i++) attachEditor(toggles[i])
   }
+
+  // 自启动：DOM 就绪后初始化
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(tryInit, 500) })
+  } else {
+    setTimeout(tryInit, 500)
+  }
+  // MutationObserver：处理动态渲染的 toggle（react-notion-x 懒加载）
+  setTimeout(function () {
+    var target = document.getElementById('notion-article') || document.body
+    new MutationObserver(function () { tryInit() }).observe(target, { childList: true, subtree: true })
+  }, 1500)
+
+  // 暴露给外部（可选）
+  window.initLogEditors = tryInit
 })()

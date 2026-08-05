@@ -108,16 +108,6 @@ const NotionPage = ({ post, className }) => {
     }
   }, [post])
 
-  useEffect(() => {
-    // 改进日志内联编辑：加载独立脚本（public/js/log-editor.js）后初始化
-    loadExternalResource('/js/log-editor.js', 'js').then(() => {
-      setTimeout(() => {
-        const articleRoot = document.getElementById('notion-article') || document.body
-        window.initLogEditors && window.initLogEditors(articleRoot)
-      }, 300)
-    })
-  }, [post])
-
   // const cleanBlockMap = cleanBlocksWithWarn(post?.blockMap);
   // console.log('NotionPage render with post:', post);
 

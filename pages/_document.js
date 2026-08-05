@@ -109,6 +109,8 @@ class MyDocument extends Document {
         <body>
           <Main />
           <NextScript />
+          {/* 改进日志内联编辑（全局加载，脚本自启动） */}
+          <script src="/js/log-editor.js" defer />
         </body>
       </Html>
     )
