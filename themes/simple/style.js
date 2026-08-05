@@ -37,6 +37,49 @@ const Style = () => {
     margin-bottom: 0 !important;
   }
 
+  /* ═══ 菜谱页：做法序号连续 + 改进日志紧凑化 ═══ */
+  /* 1. 做法步骤被"改进日志"toggle 打断后，序号连续递增（不再全是 1） */
+  #theme-simple .notion-page {
+    counter-reset: recipe-step;
+  }
+  #theme-simple .notion-page .notion-list-numbered {
+    list-style: none;
+  }
+  #theme-simple .notion-page .notion-list-numbered > li {
+    counter-increment: recipe-step;
+    position: relative;
+    padding-left: 1.7em;
+  }
+  #theme-simple .notion-page .notion-list-numbered > li::before {
+    content: counter(recipe-step) ". ";
+    position: absolute;
+    left: 0;
+    font-weight: 600;
+  }
+  /* 2. 改进日志 toggle：默认折叠成一个小图标，点开才展开，内容小字 */
+  #theme-simple .notion-page .notion-toggle {
+    margin: 3px 0;
+  }
+  #theme-simple .notion-page .notion-toggle > summary {
+    font-size: 0;
+    line-height: 1;
+    list-style: none;
+    cursor: pointer;
+    padding: 3px 0;
+    opacity: .55;
+  }
+  #theme-simple .notion-page .notion-toggle > summary::-webkit-details-marker {
+    display: none;
+  }
+  #theme-simple .notion-page .notion-toggle > summary::before {
+    content: "📝";
+    font-size: 15px;
+  }
+  #theme-simple .notion-page .notion-toggle[open] > div {
+    font-size: 13px;
+    color: #8a8a8a;
+  }
+
 
   /*  菜单下划线动画 */
   #theme-simple .menu-link {
