@@ -99,13 +99,38 @@
     contentDiv.appendChild(wrap)
   }
 
+  // 找改进日志内容区（兼容不支持 :scope 的浏览器）
+  function getContentDiv(toggleEl) {
+    try {
+      var direct = toggleEl.querySelector(':scope > div')
+      if (direct) return direct
+    } catch (e) {}
+    var children = toggleEl.children
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].tagName === 'DIV') return children[i]
+    }
+    return null
+  }
+
+  // 诊断提示（仅 ?logtest=1 时显示在顶部横幅后）
+  function dbg(msg) {
+    try {
+      if (window.location.search.indexOf('logtest=1') > -1) {
+        var el = document.createElement('div')
+        el.textContent = '· ' + msg
+        el.style.cssText = 'position:fixed;top:28px;left:0;right:0;z-index:99999;background:#e8634a;color:#fff;text-align:center;padding:4px;font-size:12px;'
+        document.body.appendChild(el)
+      }
+    } catch (e) {}
+  }
+
   // 把某个改进日志的内容区变成编辑器（幂等）
   function setupEditor(toggleEl) {
     if (!toggleEl || toggleEl.dataset.logInit) return
     var toggleId = getToggleId(toggleEl)
-    if (!toggleId) return
-    var contentDiv = toggleEl.querySelector(':scope > div')
-    if (!contentDiv) return
+    if (!toggleId) { dbg('⚠ 未找到 toggleId'); return }
+    var contentDiv = getContentDiv(toggleEl)
+    if (!contentDiv) { dbg('⚠ 未找到内容区'); return }
     toggleEl.dataset.logInit = '1'
     buildEditor(contentDiv, toggleId)
   }
