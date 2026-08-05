@@ -21,6 +21,12 @@ export async function getStaticProps(req) {
   const props = await fetchGlobalAllData({ from, locale })
 
   delete props.allPages
+  // 静态导出(EXPORT)时，undefined 字段无法被 JSON 序列化，统一转 null
+  if (process.env.EXPORT) {
+    for (const key of Object.keys(props)) {
+      if (props[key] === undefined) props[key] = null
+    }
+  }
   return {
     props,
     revalidate: process.env.EXPORT

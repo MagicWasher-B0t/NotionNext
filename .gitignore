@@ -68,3 +68,10 @@ package-lock.json
 .perf/
 tsconfig.tsbuildinfo
 webpack-internal:/
+
+# local secrets
+.cloudflare-token
+
+# wrangler
+.wrangler/
+build-log.txt
