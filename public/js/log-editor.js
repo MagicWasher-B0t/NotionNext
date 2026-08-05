@@ -59,6 +59,20 @@
     return filtered.join('\n')
   }
 
+  function todayStr() {
+    var d = new Date()
+    var m = String(d.getMonth() + 1); if (m.length === 1) m = '0' + m
+    var day = String(d.getDate()); if (day.length === 1) day = '0' + day
+    return d.getFullYear() + '-' + m + '-' + day
+  }
+  // 保存时自动加当天日期（内容已有日期则不重复加）
+  function addDatePrefix(text) {
+    var t = (text || '').trim()
+    if (!t) return ''
+    if (/^\d{4}-\d{2}-\d{2}/.test(t)) return text
+    return todayStr() + ' ｜ ' + t
+  }
+
   function buildEditor(contentDiv, toggleId) {
     var existing = extractLogText(contentDiv)
     contentDiv.innerHTML = ''
@@ -91,7 +105,7 @@
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toggleId: toggleId, content: ta.value, password: pwd })
+        body: JSON.stringify({ toggleId: toggleId, content: addDatePrefix(ta.value), password: pwd })
       })
         .then(function (res) { return res.json().then(function (j) { return { ok: res.ok, j: j } }) })
         .then(function (r) {
