@@ -1,23 +1,41 @@
 // 改进日志内联编辑（独立脚本，_document 全局加载）
-// 用事件委托监听 toggle 点击，展开后把内容变成可编辑输入框，保存写回 Notion
+// 页面加载后直接扫描所有改进日志 toggle，把内容区替换成可编辑输入框
 (function () {
   var API_URL = 'https://recipe-search-2iw.pages.dev/api/update-log'
   var PWD_KEY = 'recipe_log_pwd'
   var TEMPLATE_PREFIXES = ['（待填写', '(待填写', '格式示例', '待填写', '（示例', '(示例']
+  var DEBUG = window.location.search.indexOf('logtest=1') > -1
+  // 绿字：确认脚本已执行
+  if (DEBUG) {
+    try {
+      var ok = document.createElement('div')
+      ok.textContent = '✓ 脚本已加载'
+      ok.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#4a9e6f;color:#fff;text-align:center;padding:6px;font-size:13px;'
+      document.body.appendChild(ok)
+    } catch (e) {}
+  }
 
-  // 自检标记：URL 带 ?logtest=1 时显示"脚本已加载"（用于排查）
-  try {
-    if (window.location.search.indexOf('logtest=1') > -1) {
-      var dbg = document.createElement('div')
-      dbg.textContent = '✓ 编辑器脚本已加载（log-editor.js）'
-      dbg.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#4a9e6f;color:#fff;text-align:center;padding:6px;font-size:13px;'
-      document.body.appendChild(dbg)
-    }
-  } catch (e) {}
+  function dbg(msg) {
+    if (!DEBUG) return
+    try {
+      var el = document.createElement('div')
+      el.textContent = msg
+      el.style.cssText = 'position:fixed;top:28px;left:0;right:0;z-index:99999;background:#e8634a;color:#fff;text-align:center;padding:4px;font-size:12px;'
+      document.body.appendChild(el)
+    } catch (e) {}
+  }
 
   function getToggleId(el) {
     var m = (el.className || '').match(/notion-block-([0-9a-f-]{36})/)
     return m ? m[1] : null
+  }
+
+  function getContentDiv(toggleEl) {
+    var children = toggleEl.children
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].tagName === 'DIV') return children[i]
+    }
+    return null
   }
 
   function extractLogText(contentDiv) {
@@ -41,12 +59,13 @@
   }
 
   function buildEditor(contentDiv, toggleId) {
+    var existing = extractLogText(contentDiv)
     contentDiv.innerHTML = ''
     var wrap = document.createElement('div')
     wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;'
 
     var ta = document.createElement('textarea')
-    ta.value = extractLogText(contentDiv)
+    ta.value = existing
     ta.rows = 2
     ta.placeholder = '记录：日期 ｜ 改动 ｜ 效果'
     ta.style.cssText =
@@ -99,69 +118,43 @@
     contentDiv.appendChild(wrap)
   }
 
-  // 找改进日志内容区（兼容不支持 :scope 的浏览器）
-  function getContentDiv(toggleEl) {
-    try {
-      var direct = toggleEl.querySelector(':scope > div')
-      if (direct) return direct
-    } catch (e) {}
-    var children = toggleEl.children
-    for (var i = 0; i < children.length; i++) {
-      if (children[i].tagName === 'DIV') return children[i]
-    }
-    return null
-  }
-
-  // 诊断提示（仅 ?logtest=1 时显示在顶部横幅后）
-  function dbg(msg) {
-    try {
-      if (window.location.search.indexOf('logtest=1') > -1) {
-        var el = document.createElement('div')
-        el.textContent = '· ' + msg
-        el.style.cssText = 'position:fixed;top:28px;left:0;right:0;z-index:99999;background:#e8634a;color:#fff;text-align:center;padding:4px;font-size:12px;'
-        document.body.appendChild(el)
-      }
-    } catch (e) {}
-  }
-
-  // 把某个改进日志的内容区变成编辑器（幂等）
   function setupEditor(toggleEl) {
-    if (!toggleEl || toggleEl.dataset.logInit) return
-    var toggleId = getToggleId(toggleEl)
-    if (!toggleId) { dbg('⚠ 未找到 toggleId'); return }
-    var contentDiv = getContentDiv(toggleEl)
-    if (!contentDiv) { dbg('⚠ 未找到内容区'); return }
-    toggleEl.dataset.logInit = '1'
-    buildEditor(contentDiv, toggleId)
-  }
-
-  // 事件委托：点击任何改进日志的标题（展开）→ 注入编辑器
-  document.addEventListener('click', function (e) {
-    var t = e.target
-    var summary = t && t.closest ? t.closest('.notion-toggle summary') : null
-    if (!summary) return
-    var toggle = summary.closest('.notion-toggle')
-    if (toggle) setTimeout(function () { setupEditor(toggle) }, 120)
-  }, true)
-
-  // 初始处理已展开的 + 多轮扫描 + MutationObserver 兜底
-  function scan() {
-    var root = document.getElementById('notion-article') || document.body
-    var toggles = root.querySelectorAll('.notion-toggle')
-    for (var i = 0; i < toggles.length; i++) {
-      if (toggles[i].open) setupEditor(toggles[i])
+    try {
+      if (!toggleEl || toggleEl.dataset.logInit) return
+      var toggleId = getToggleId(toggleEl)
+      if (!toggleId) { dbg('⚠ 未找到 toggleId'); return }
+      var contentDiv = getContentDiv(toggleEl)
+      if (!contentDiv) { dbg('⚠ 未找到内容区'); return }
+      toggleEl.dataset.logInit = '1'
+      buildEditor(contentDiv, toggleId)
+    } catch (e) {
+      dbg('⚠ 出错: ' + e.message)
     }
   }
+
+  var scannedCount = 0
+  function scan() {
+    try {
+      var root = document.getElementById('notion-article') || document.body
+      var toggles = root.querySelectorAll('.notion-toggle')
+      scannedCount = toggles.length
+      for (var i = 0; i < toggles.length; i++) setupEditor(toggles[i])
+    } catch (e) {}
+  }
+
   function boot() { setTimeout(scan, 100) }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot)
   } else {
-    setTimeout(boot, 300)
+    setTimeout(boot, 200)
   }
-  setTimeout(scan, 1500)
-  setTimeout(scan, 4000)
+  // 多轮扫描 + 全程监听动态渲染
+  setTimeout(scan, 1200)
+  setTimeout(scan, 3000)
+  setTimeout(scan, 6000)
   setTimeout(function () {
-    var target = document.getElementById('notion-article') || document.body
-    new MutationObserver(scan).observe(target, { childList: true, subtree: true })
-  }, 2000)
+    var obs = new MutationObserver(scan)
+    var root = document.getElementById('notion-article') || document.body
+    obs.observe(root, { childList: true, subtree: true })
+  }, 500)
 })()
