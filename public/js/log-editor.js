@@ -26,7 +26,8 @@
   }
 
   function getToggleId(el) {
-    var m = (el.className || '').match(/notion-block-([0-9a-f-]{36})/)
+    // react-notion-x 的 block id 是 32 位无连字符的十六进制
+    var m = (el.className || '').match(/notion-block-([0-9a-f]{32})/)
     return m ? m[1] : null
   }
 
