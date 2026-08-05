@@ -1,10 +1,19 @@
-// 改进日志内联编辑（独立脚本，_document 全局加载，自动初始化）
-// 点开 📝 改进日志后可打字，保存后通过 API 写回 Notion
+// 改进日志内联编辑（独立脚本，_document 全局加载）
+// 用事件委托监听 toggle 点击，展开后把内容变成可编辑输入框，保存写回 Notion
 (function () {
   var API_URL = 'https://recipe-search-2iw.pages.dev/api/update-log'
   var PWD_KEY = 'recipe_log_pwd'
-  // 模板提示行（不是用户记录，不预填进编辑框）
   var TEMPLATE_PREFIXES = ['（待填写', '(待填写', '格式示例', '待填写', '（示例', '(示例']
+
+  // 自检标记：URL 带 ?logtest=1 时显示"脚本已加载"（用于排查）
+  try {
+    if (window.location.search.indexOf('logtest=1') > -1) {
+      var dbg = document.createElement('div')
+      dbg.textContent = '✓ 编辑器脚本已加载（log-editor.js）'
+      dbg.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#4a9e6f;color:#fff;text-align:center;padding:6px;font-size:13px;'
+      document.body.appendChild(dbg)
+    }
+  } catch (e) {}
 
   function getToggleId(el) {
     var m = (el.className || '').match(/notion-block-([0-9a-f-]{36})/)
@@ -90,52 +99,44 @@
     contentDiv.appendChild(wrap)
   }
 
-  function attachEditor(toggleEl) {
+  // 把某个改进日志的内容区变成编辑器（幂等）
+  function setupEditor(toggleEl) {
+    if (!toggleEl || toggleEl.dataset.logInit) return
     var toggleId = getToggleId(toggleEl)
-    if (!toggleId || toggleEl.dataset.logBound) return
-    toggleEl.dataset.logBound = '1'
-    // 展开时注入编辑器（避免 react-notion-x 渲染内容覆盖）
-    toggleEl.addEventListener('toggle', function () {
-      if (toggleEl.open) {
-        setTimeout(function () {
-          var contentDiv = toggleEl.querySelector(':scope > div')
-          if (contentDiv && !contentDiv.dataset.logInit) {
-            contentDiv.dataset.logInit = '1'
-            buildEditor(contentDiv, toggleId)
-          }
-        }, 80)
-      }
-    })
-    // 如果初始就是展开的，也注入
-    if (toggleEl.open) {
-      setTimeout(function () {
-        var contentDiv = toggleEl.querySelector(':scope > div')
-        if (contentDiv && !contentDiv.dataset.logInit) {
-          contentDiv.dataset.logInit = '1'
-          buildEditor(contentDiv, toggleId)
-        }
-      }, 80)
-    }
+    if (!toggleId) return
+    var contentDiv = toggleEl.querySelector(':scope > div')
+    if (!contentDiv) return
+    toggleEl.dataset.logInit = '1'
+    buildEditor(contentDiv, toggleId)
   }
 
-  function tryInit() {
+  // 事件委托：点击任何改进日志的标题（展开）→ 注入编辑器
+  document.addEventListener('click', function (e) {
+    var t = e.target
+    var summary = t && t.closest ? t.closest('.notion-toggle summary') : null
+    if (!summary) return
+    var toggle = summary.closest('.notion-toggle')
+    if (toggle) setTimeout(function () { setupEditor(toggle) }, 120)
+  }, true)
+
+  // 初始处理已展开的 + 多轮扫描 + MutationObserver 兜底
+  function scan() {
     var root = document.getElementById('notion-article') || document.body
     var toggles = root.querySelectorAll('.notion-toggle')
-    for (var i = 0; i < toggles.length; i++) attachEditor(toggles[i])
+    for (var i = 0; i < toggles.length; i++) {
+      if (toggles[i].open) setupEditor(toggles[i])
+    }
   }
-
-  // 自启动：DOM 就绪后初始化
+  function boot() { setTimeout(scan, 100) }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(tryInit, 500) })
+    document.addEventListener('DOMContentLoaded', boot)
   } else {
-    setTimeout(tryInit, 500)
+    setTimeout(boot, 300)
   }
-  // MutationObserver：处理动态渲染的 toggle（react-notion-x 懒加载）
+  setTimeout(scan, 1500)
+  setTimeout(scan, 4000)
   setTimeout(function () {
     var target = document.getElementById('notion-article') || document.body
-    new MutationObserver(function () { tryInit() }).observe(target, { childList: true, subtree: true })
-  }, 1500)
-
-  // 暴露给外部（可选）
-  window.initLogEditors = tryInit
+    new MutationObserver(scan).observe(target, { childList: true, subtree: true })
+  }, 2000)
 })()
