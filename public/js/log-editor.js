@@ -82,6 +82,11 @@
     var ta = document.createElement('textarea')
     ta.value = existing
     ta.rows = 2
+    // 从 Notion 实时拉取最新内容（静态页面里的是旧快照，保存后需要拉取最新的）
+    fetch(API_URL + '?toggleId=' + encodeURIComponent(toggleId))
+      .then(function (r) { return r.json() })
+      .then(function (j) { if (j && j.content !== undefined) ta.value = j.content })
+      .catch(function () {})
     ta.placeholder = '记录：日期 ｜ 改动 ｜ 效果'
     ta.style.cssText =
       'width:100%;box-sizing:border-box;font-size:13px;line-height:1.5;padding:8px 10px;' +
