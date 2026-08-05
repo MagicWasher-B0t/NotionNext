@@ -9,7 +9,6 @@ import dynamic from 'next/dynamic'
 import { useEffect, useRef } from 'react'
 import { NotionRenderer } from 'react-notion-x'
 import OriginalityProof from './OriginalityProof'
-import { initLogEditors } from './LogEditor'
 
 /**
  * 整个站点的核心组件
@@ -110,12 +109,13 @@ const NotionPage = ({ post, className }) => {
   }, [post])
 
   useEffect(() => {
-    // 改进日志内联编辑：等待 react-notion-x 渲染完成后绑定
-    const timer = setTimeout(() => {
-      const articleRoot = document.getElementById('notion-article') || document.body
-      initLogEditors(articleRoot)
-    }, 300)
-    return () => clearTimeout(timer)
+    // 改进日志内联编辑：加载独立脚本（public/js/log-editor.js）后初始化
+    loadExternalResource('/js/log-editor.js', 'js').then(() => {
+      setTimeout(() => {
+        const articleRoot = document.getElementById('notion-article') || document.body
+        window.initLogEditors && window.initLogEditors(articleRoot)
+      }, 300)
+    })
   }, [post])
 
   // const cleanBlockMap = cleanBlocksWithWarn(post?.blockMap);
